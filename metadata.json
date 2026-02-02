@@ -1,0 +1,8 @@
+{
+  "name": "Aria Nexus Prime",
+  "description": "A high-end, futuristic AI command center featuring multi-modal interaction, real-time voice synthesis, image generation, and intelligent data visualization.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
