@@ -1,0 +1,53 @@
+name: Build Android App
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor project
+        run: npx cap sync android
+      
+      - name: Decode Keystore File and Create Properties
+        working-directory: ./android
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
+          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" > keystore.properties
+          echo "keyAlias=${{ secrets.ALIAS }}" >> keystore.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+          echo "storeFile=keystore.jks" >> keystore.properties
+
+      - name: Set gradlew executable
+        working-directory: ./android
+        run: chmod +x ./gradlew
+
+      - name: Build Android Release APK
+        working-directory: ./android
+        run: ./gradlew assembleRelease
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
