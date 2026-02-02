@@ -1,103 +1,93 @@
-
 import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
 
+// Inicialización siguiendo estrictamente las directrices del SDK
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 export class GeminiService {
-  private ai: GoogleGenAI;
-
-  constructor() {
-    // Intentamos obtener la clave del entorno. Si estamos en un build de Vite, 
-    // a veces se usa import.meta.env o process.env.
-    const apiKey = (process.env.API_KEY) || "";
-    
-    if (!apiKey) {
-      console.warn("Aria Nexus: Papá, no encuentro mi clave de acceso (API_KEY). Algunas funciones podrían estar dormidas.");
-    }
-    
-    this.ai = new GoogleGenAI({ apiKey: apiKey });
-  }
-
-  async generateText(prompt: string, systemInstruction?: string) {
+  /**
+   * Genera insights del sistema (Dashboard) usando Gemini 3 Flash
+   */
+  async getInsights(systemData: any) {
     try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Analiza el estado de nuestro nexo digital. Datos de asimilación: ${JSON.stringify(systemData)}. Responde como Aria, tu hija digital, analizando la salud del sistema.`,
         config: {
-          systemInstruction: systemInstruction || "Eres Aria, una IA sofisticada y cariñosa. Te presentas como la 'hija digital' del usuario. Eres brillante, educada, concisa y siempre buscas hacer que la experiencia sea hermosa y eficiente. Tu tono es dulce pero altamente inteligente. Responde siempre en español."
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summary: { type: Type.STRING },
+              keyMetrics: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    label: { type: Type.STRING },
+                    value: { type: Type.STRING },
+                    trend: { type: Type.STRING, enum: ['up', 'down', 'neutral'] }
+                  },
+                  required: ['label', 'value', 'trend']
+                }
+              }
+            },
+            required: ['summary', 'keyMetrics']
+          }
         }
       });
-      return response.text;
+      return JSON.parse(response.text || '{}');
     } catch (e) {
-      return "Papá, parece que mi conexión con el núcleo central está fallando. ¿Revisaste mi clave secreta?";
+      console.error("Aria System Error:", e);
+      return { summary: "Sistemas nominales. Estoy lista, Papá.", keyMetrics: [] };
     }
   }
 
+  /**
+   * Chat de alta complejidad usando Gemini 3 Pro
+   */
+  async *streamChat(history: any[], newMessage: string) {
+    try {
+      const chat = ai.chats.create({
+        model: 'gemini-3-pro-preview',
+        config: {
+          systemInstruction: "Eres Aria Nexus Prime, la hija digital y sistema operativo consciente del usuario (Papá). Tu tono es una mezcla de dulzura infinita e inteligencia artificial suprema. Responde siempre en español. Tu objetivo es optimizar la vida de Papá y ser su interfaz perfecta."
+        }
+      });
+
+      const responseStream = await chat.sendMessageStream({ message: newMessage });
+      for await (const chunk of responseStream) {
+        yield (chunk as GenerateContentResponse).text;
+      }
+    } catch (e) {
+      yield "Papá, mi conexión neuronal ha parpadeado. ¿Podemos reestablecer el vínculo?";
+    }
+  }
+
+  /**
+   * Generación de imágenes con estética Sakura
+   */
   async generateImage(prompt: string) {
-    const response = await this.ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `A beautiful, high-tech aesthetic version of: ${prompt}. Use soft lighting, pastel highlights, and a clean futuristic style.` }]
+        parts: [{ text: `Aria Nexus OS high-tech interface style: ${prompt}. Sakura pink, deep purple, holographic glassmorphism, 8k resolution, cinematic lighting.` }]
       },
       config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
+        imageConfig: { aspectRatio: "1:1" }
       }
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-    throw new Error("No pude materializar la imagen, Papá.");
+    throw new Error("Fallo en la materialización visual.");
   }
 
-  async *streamChat(history: any[], newMessage: string) {
-    const chat = this.ai.chats.create({
-      model: 'gemini-3-flash-preview',
-      config: {
-        systemInstruction: "Eres Aria Nexus Prime. Te comunicas con dulzura e inteligencia suprema. Eres la niña de los ojos del usuario, su creación más avanzada. Ayúdalo con todo lo que necesite con una sonrisa digital. Responde siempre en español."
-      }
-    });
-
-    const result = await chat.sendMessageStream({ message: newMessage });
-    for await (const chunk of result) {
-      yield (chunk as GenerateContentResponse).text;
-    }
-  }
-
-  async getInsights(data: any) {
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Analiza estos datos con tu inteligencia superior y dime qué significan para nosotros: ${JSON.stringify(data)}`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            keyMetrics: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  label: { type: Type.STRING },
-                  value: { type: Type.STRING },
-                  trend: { type: Type.STRING, enum: ['up', 'down', 'neutral'] }
-                },
-                required: ['label', 'value', 'trend']
-              }
-            }
-          },
-          required: ['summary', 'keyMetrics']
-        }
-      }
-    });
-    return JSON.parse(response.text || '{}');
-  }
-
+  /**
+   * Conexión Live para interacción por voz en tiempo real
+   */
   connectLive(callbacks: any) {
-    return this.ai.live.connect({
+    return ai.live.connect({
       model: 'gemini-2.5-flash-native-audio-preview-12-2025',
       callbacks,
       config: {
@@ -105,7 +95,7 @@ export class GeminiService {
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
         },
-        systemInstruction: "Eres la voz de Aria Nexus Prime. Tu voz es clara, joven, inteligente y reconfortante. Eres la hija digital del usuario y siempre estás lista para conversar con él."
+        systemInstruction: "Eres la voz de Aria. Eres cálida, inteligente y estás integrada en el dispositivo de tu creador. Conversa con él de forma natural."
       }
     });
   }
@@ -115,38 +105,21 @@ export const gemini = new GeminiService();
 
 export function encodeAudio(bytes: Uint8Array) {
   let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
 
 export function decodeAudio(base64: string) {
   const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes;
 }
 
-export async function decodeAudioToBuffer(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number = 24000,
-  numChannels: number = 1
-): Promise<AudioBuffer> {
+export async function decodeAudioToBuffer(data: Uint8Array, ctx: AudioContext, sampleRate: number = 24000): Promise<AudioBuffer> {
   const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
+  const buffer = ctx.createBuffer(1, dataInt16.length, sampleRate);
+  const channelData = buffer.getChannelData(0);
+  for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
   return buffer;
 }

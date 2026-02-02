@@ -1,7 +1,6 @@
-
 {
-  "appId": "com.arianexus.prime",
-  "appName": "Aria Nexus",
+  "appId": "com.arianexus.prime.final",
+  "appName": "Aria Nexus Final",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
