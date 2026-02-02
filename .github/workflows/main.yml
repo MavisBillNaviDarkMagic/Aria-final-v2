@@ -1,53 +1,42 @@
-name: Build Android App
+# .github/workflows/main.yml
+name: CI Build Workflow
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '11'
+          node-version: '20'
+          cache: 'npm' # Cache dependencies to speed up builds
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build web app
+      - name: Create .env file for build
+        # This step creates a .env file with the API key from your repository secrets.
+        # Make sure you have a secret named GEMINI_API_KEY in your GitHub repository settings.
+        run: echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+
+      - name: Run build
+        # This command builds your application. Vite will automatically use the .env file.
         run: npm run build
 
-      - name: Sync Capacitor project
-        run: npx cap sync android
-      
-      - name: Decode Keystore File and Create Properties
-        working-directory: ./android
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
-          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" > keystore.properties
-          echo "keyAlias=${{ secrets.ALIAS }}" >> keystore.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
-          echo "storeFile=keystore.jks" >> keystore.properties
-
-      - name: Set gradlew executable
-        working-directory: ./android
-        run: chmod +x ./gradlew
-
-      - name: Build Android Release APK
-        working-directory: ./android
-        run: ./gradlew assembleRelease
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Upload build artifact
+        # This step saves the build output (the 'dist' folder) as an artifact.
+        # You can download it from the workflow run page to inspect it.
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: dist/
